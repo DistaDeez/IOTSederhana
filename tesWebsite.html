@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MQTT Dashboard 4 Saklar</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 34px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 34px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 26px;
+      width: 26px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked+.slider {
+      background-color: #34d399;
+      /* hijau */
+    }
+
+    input:checked+.slider:before {
+      transform: translateX(26px);
+    }
+  </style>
+</head>
+
+<body class="bg-slate-100 min-h-screen flex items-center justify-center p-6">
+  <div class="w-full max-w-md bg-white shadow-xl rounded-2xl p-6">
+    <h1 class="text-2xl font-bold text-sky-600 mb-6 text-center">⚡ 4 Saklar Interaktif</h1>
+
+    <!-- Status -->
+    <div id="connBadge" class="text-sm px-3 py-1 mb-6 rounded-full bg-gray-200 text-gray-700 text-center">
+      Connecting...
+    </div>
+
+    <!-- Saklar -->
+    <div class="space-y-6">
+      <div class="flex items-center justify-between">
+        <span class="font-semibold text-gray-700">💡 LED 1</span>
+        <label class="switch">
+          <input type="checkbox" id="R1">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="flex items-center justify-between">
+        <span class="font-semibold text-gray-700">💡 LED 2</span>
+        <label class="switch">
+          <input type="checkbox" id="R2">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="flex items-center justify-between">
+        <span class="font-semibold text-gray-700">🌬️ Kipas</span>
+        <label class="switch">
+          <input type="checkbox" id="R3">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="flex items-center justify-between">
+        <span class="font-semibold text-gray-700">🔔 Pompa</span>
+        <label class="switch">
+          <input type="checkbox" id="R4">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Sensor -->
+    <div class="mt-8 p-4 border rounded-xl bg-gray-50">
+      <div class="text-sm text-gray-500">Sensor Suhu</div>
+      <div id="sensorVal" class="mt-1 text-2xl font-bold text-emerald-600">-</div>
+    </div>
+  </div>
+
+  <script>
+    const brokerUrl = "ws://y30f60a6.ala.dedicated.aws.emqxcloud.com:8083/mqtt";
+    const options = {
+      username: "esp32s2",
+      password: "12345678",
+    };
+
+    const topicCmd = "esp32s2/cmd";
+    const topicSensor = "esp32s2/sensor";
+
+    const connBadge = document.getElementById("connBadge");
+    const sensorVal = document.getElementById("sensorVal");
+
+    const client = mqtt.connect(brokerUrl, options);
+
+    client.on("connect", () => {
+      connBadge.innerText = "Connected ✅";
+      connBadge.className = "text-sm px-3 py-1 mb-6 rounded-full bg-green-100 text-green-700 text-center";
+      client.subscribe(topicSensor);
+    });
+
+    client.subscribe("esp32s2/status");
+
+    client.on("message", (t, msg) => {
+      if (t === topicSensor) {
+        sensorVal.innerText = msg.toString() + " °C";
+      } else if (t === "esp32s2/status") {
+        console.log("📩 Status:", msg.toString());
+      }
+    });
+
+
+    client.on("message", (t, msg) => {
+      if (t === topicSensor) {
+        sensorVal.innerText = msg.toString() + " °C";
+      }
+    });
+
+    // Daftar saklar
+    const switches = ["R1", "R2", "R3", "R4"];
+    switches.forEach(id => {
+      const el = document.getElementById(id);
+      el.addEventListener("change", () => {
+        const action = el.checked ? "ON" : "OFF";
+        const payload = JSON.stringify({ device: id, action: action });
+        client.publish(topicCmd, payload);
+        console.log("📤 Kirim:", payload);
+      });
+    });
+  </script>
+</body>
+
+</html>
